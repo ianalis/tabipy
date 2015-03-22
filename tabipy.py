@@ -27,7 +27,7 @@ class TableCell(object):
     _latex_escape_re = None
     
     def __init__(self, value, header=False, bg_colour=None, text_colour=None,
-                 col_span=1, format='{}'):
+                 col_span=1, format=None):
         self.value = value
         self.header = header
         self.bg_colour = bg_colour
@@ -70,9 +70,9 @@ class TableCell(object):
         self._col_span = val
 
     def formatted_value(self):
-        return self.format.format(self.value)
+        return (self.format.format if self.format else u'{}'.format)(self.value)
     
-    def _repr_html_(self):
+    def _repr_html_(self, format=None):
         tag = 'th' if self.header else 'td'
         spans = ''
         if self.col_span>1:
@@ -81,9 +81,16 @@ class TableCell(object):
         style = self._make_css()
         if style:
             attrs.append('style="%s"'%style)
-        return "<%s %s %s>%s</%s>"% (tag, spans,' '.join(attrs), 
-                                     self.formatted_value(), 
-                                     tag) 
+
+        if self.format:
+            val = self.format.format(self.value)
+        elif not self.header and format:
+            # do not apply column format to headers
+            val = format.format(self.value)
+        else:
+            val = u'{}'.format(self.value)
+
+        return "<%s %s %s>%s</%s>"% (tag, spans,' '.join(attrs), val, tag) 
 
     def _repr_latex_(self):
         out = self._latex_escape_re.sub(self._latex_escape_func, 
@@ -115,10 +122,9 @@ class TableRow(object):
            if self.max_len and len(self.row_format) != self.max_len:
                raise ValueError('Wrong number of format strings')
 
-        for i,c in enumerate(cells):
-            self.append_cell(c, 
-                             format=(self.row_format[i] 
-                                         if self.row_format else '{}'))
+        for c in cells:
+            self.append_cell(c)
+
         if self.max_len is not None:
             cur_len = self.column_count()
             if cur_len < self.max_len:
@@ -141,9 +147,9 @@ class TableRow(object):
     def set_parent(self, parent):
         self.parent = parent
             
-    def append_cell(self, c, format='{}'):
+    def append_cell(self, c):
         if not isinstance(c, TableCell):
-            c = TableCell(c, format=format)
+            c = TableCell(c)
         if c.col_span>1:
             self.cells.append(c)
             index = self.column_count()
@@ -179,7 +185,16 @@ class TableRow(object):
         index = 0      
         for count, c_col in enumerate(cur):
             if index == count:
-                html += self.cells[index]._repr_html_()
+                cell_format = None
+                # format priority:
+                # 1. cell format
+                # 2. row format
+                # 3. table header row format
+                if self.row_format:
+                    cell_format = self.row_format[index]
+                elif self.parent.col_format:
+                    cell_format = self.parent.col_format[index]
+                html += self.cells[index]._repr_html_(cell_format)
                 index += c_col
         html +='</tr>'
         return html
@@ -205,6 +220,11 @@ class TableHeaderRow(TableRow):
     def __init__(self, *cells, **kwargs):
         self.col_format = kwargs.get('col_format')
         super(TableHeaderRow, self).__init__(*cells, **kwargs)
+
+        # assign a row format if undefined to prevent the table column format
+        # from being used
+        if self.row_format is None:
+            self.row_format = [u'{}'] * len(self.cells)
 
     def append_cell(self, c, format='{}'):
         if not isinstance(c, TableCell):

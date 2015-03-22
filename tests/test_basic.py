@@ -51,13 +51,24 @@ def test_col_format():
                 ('1.5', '2', '     3.568'),
                 ('Total', '20', '        30'))
 
-    for res_row, expected_row in zip(t.rows, expected):
-        for res_cell, expected_cell in zip(res_row.cells, expected_row):
-            # compare text surrounded by HTML
-            assert re.search('(?<=>).*?(?=<)', 
-                             res_cell._repr_html_()).group() == expected_cell
-            # compare latex text, ignoring formatting for headers
-            assert res_cell._repr_latex_().split(r'\bf ')[-1] == expected_cell
+#    for res_row, expected_row in zip(t.rows, expected):
+#        for res_cell, expected_cell in zip(res_row.cells, expected_row):
+#            # compare text surrounded by HTML tags
+#            print res_cell._repr_html_()
+#            assert re.search('(?<=>).*?(?=<)', 
+#                             res_cell._repr_html_()).group() == expected_cell
+#            # compare latex text, ignoring formatting for headers
+#            assert res_cell._repr_latex_().split(r'\bf ')[-1] == expected_cell
+
+    t_html = t._repr_html_()
+    row_split = re.compile('<\s*tr\s*>')
+    col_split = re.compile(r'(?<=\>).*?(?=\<)')
+
+    for row, row_exp in zip(row_split.split(t_html)[1:], expected):
+        cells = [c for c in col_split.findall(row) if c]
+        for cell, cell_exp in zip(c, row_exp):
+             assert cell == cell_exp
+
 
 def test_escape():
     inp_expected = (('', ''),

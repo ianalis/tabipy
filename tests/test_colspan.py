@@ -1,6 +1,6 @@
 import re
 import pytest
-from tabipy import Table
+from tabipy import Table, TableHeaderRow, TableCell
 
 @pytest.fixture
 def t():
@@ -35,3 +35,23 @@ def test_col_span_latex(t):
     cl_check = re.compile('\w*\\multicolumn\s*\{\s*2\s*}')
     assert len(cl_check.findall(parts[0]))>0
     #print("pass")
+
+def test_col_span_format():
+    t = Table(TableHeaderRow('A', 'B', 'C', 'D',
+                             col_format=('{:.2g}', '{:3g}', '{:d}', '{:10.4g}')),
+              (1.50, TableCell(3.5678, col_span=2), 10.9876),
+              (112.679, 74.2974, 2.298639, 7.46036))
+    cell_3_2 = t.rows[2].cells[1]
+    cell_3_2.col_span = 2
+    expected = (('A', 'B', 'C', 'D'),
+                ('1.5', '3.57', '     10.99'),
+                ('1.1e+02', '74.3', '      7.46'))
+
+    t_html = t._repr_html_()
+    row_split = re.compile('<\s*tr\s*>')
+    col_split = re.compile(r'(?<=\>).*?(?=\<)')
+    
+    for row, row_exp in zip(row_split.split(t_html)[1:], expected):
+        cells = [c for c in col_split.findall(row) if c]
+        for cell, cell_exp in zip(c, row_exp):
+             assert cell == cell_exp
