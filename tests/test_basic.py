@@ -42,7 +42,7 @@ def test_cell_format():
         cell.format = inp
         assert cell.formatted_value() == expected
 
-def test_col_format():
+def test_col_format_html():
     t = Table(TableHeaderRow('A', 'B', 'C', 
                              col_format=('{:.2g}', '{:d}', '{:10.4g}')),
               (1.50, 2, 3.5678),
@@ -50,15 +50,6 @@ def test_col_format():
     expected = (('A', 'B', 'C'),
                 ('1.5', '2', '     3.568'),
                 ('Total', '20', '        30'))
-
-#    for res_row, expected_row in zip(t.rows, expected):
-#        for res_cell, expected_cell in zip(res_row.cells, expected_row):
-#            # compare text surrounded by HTML tags
-#            print res_cell._repr_html_()
-#            assert re.search('(?<=>).*?(?=<)', 
-#                             res_cell._repr_html_()).group() == expected_cell
-#            # compare latex text, ignoring formatting for headers
-#            assert res_cell._repr_latex_().split(r'\bf ')[-1] == expected_cell
 
     t_html = t._repr_html_()
     row_split = re.compile('<\s*tr\s*>')
@@ -69,6 +60,29 @@ def test_col_format():
         for cell, cell_exp in zip(c, row_exp):
              assert cell == cell_exp
 
+def test_col_format_latex():
+    t = Table(TableHeaderRow('A', 'B', 'C', 
+                             col_format=('{:.2g}', '{:d}', '{:10.4g}')),
+              (1.50, 2, 3.5678),
+              (TableHeader('Total'), 20, 30))
+    expected = (('A', 'B', 'C'),
+                ('1.5', '2', '     3.568'),
+                ('Total', '20', '        30'))
+
+    t_latex = t._repr_latex_()
+    row_split = re.compile(r'\n')
+    col_split = re.compile(r' & ')
+
+    lines = row_split.split(t_latex)
+    # check header
+    for cell, cell_exp in zip(col_split.split(lines[2]), expected[0]):
+        assert cell_exp in cell
+
+    # check body
+    for row, row_exp in zip(lines[4:-2], expected):
+        cells = [c for c in col_split.split(row) if c]
+        for cell, cell_exp in zip(cells, row_exp):
+             assert cell_exp in cell
 
 def test_escape():
     inp_expected = (('', ''),

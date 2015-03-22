@@ -69,9 +69,16 @@ class TableCell(object):
         val = self._check_span(val)
         self._col_span = val
 
-    def formatted_value(self):
-        return (self.format.format if self.format else u'{}'.format)(self.value)
-    
+    def formatted_value(self, format=None):
+        if self.format:
+            val = self.format.format(self.value)
+        # do not apply column format to headers
+        elif not self.header and format:
+            val = format.format(self.value)
+        else:
+            val = u'{}'.format(self.value)
+        return val
+ 
     def _repr_html_(self, format=None):
         tag = 'th' if self.header else 'td'
         spans = ''
@@ -82,19 +89,13 @@ class TableCell(object):
         if style:
             attrs.append('style="%s"'%style)
 
-        if self.format:
-            val = self.format.format(self.value)
-        elif not self.header and format:
-            # do not apply column format to headers
-            val = format.format(self.value)
-        else:
-            val = u'{}'.format(self.value)
+        return "<%s %s %s>%s</%s>"% (tag, spans,' '.join(attrs), 
+                                     self.formatted_value(format),
+                                     tag) 
 
-        return "<%s %s %s>%s</%s>"% (tag, spans,' '.join(attrs), val, tag) 
-
-    def _repr_latex_(self):
+    def _repr_latex_(self, format=None):
         out = self._latex_escape_re.sub(self._latex_escape_func, 
-                                        self.formatted_value())
+                                        self.formatted_value(format))
         # the bolf flag must only be next to the value of the cell not outside
         # of the multicolumn flag
         out = u"\\bf " + out if self.header else out
@@ -194,6 +195,7 @@ class TableRow(object):
                     cell_format = self.row_format[index]
                 elif self.parent.col_format:
                     cell_format = self.parent.col_format[index]
+
                 html += self.cells[index]._repr_html_(cell_format)
                 index += c_col
         html +='</tr>'
@@ -209,8 +211,17 @@ class TableRow(object):
         index = 0
         for count, c_col in enumerate(cur):
             if index == count:
-                _cell = self.cells[index]
-                latex += _cell._repr_latex_() + ' & '
+                cell_format = None
+                # format priority:
+                # 1. cell format
+                # 2. row format
+                # 3. table header row format
+                if self.row_format:
+                    cell_format = self.row_format[index]
+                elif self.parent.col_format:
+                    cell_format = self.parent.col_format[index]
+
+                latex += self.cells[index]._repr_latex_(cell_format) + ' & '
                 index += c_col
         latex = latex.strip('& ')
         latex += '\\\\\n'
