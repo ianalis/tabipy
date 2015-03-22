@@ -27,6 +27,38 @@ def test_tableheader():
     latex = t._repr_latex_()
     assert latex.count(r'\bf') == 3
 
+def test_cell_format():
+    inp_expected = (('{}', '1.6789'),
+                    ('{:.4g}', '1.679'))
+
+    # format set on creation
+    for inp, expected in inp_expected:
+        cell = TableCell(1.6789, format=inp)
+        assert cell.formatted_value() == expected
+
+    # format set after creation
+    for inp, expected in inp_expected:
+        cell = TableCell(1.6789)
+        cell.format = inp
+        assert cell.formatted_value() == expected
+
+def test_col_format():
+    t = Table(TableHeaderRow('A', 'B', 'C', 
+                             col_format=('{:.2g}', '{:d}', '{:10.4g}')),
+              (1.50, 2, 3.5678),
+              (TableHeader('Total'), 20, 30))
+    expected = (('A', 'B', 'C'),
+                ('1.5', '2', '     3.568'),
+                ('Total', '20', '        30'))
+
+    for res_row, expected_row in zip(t.rows, expected):
+        for res_cell, expected_cell in zip(res_row.cells, expected_row):
+            # compare text surrounded by HTML
+            assert re.search('(?<=>).*?(?=<)', 
+                             res_cell._repr_html_()).group() == expected_cell
+            # compare latex text, ignoring formatting for headers
+            assert res_cell._repr_latex_().split(r'\bf ')[-1] == expected_cell
+
 def test_escape():
     inp_expected = (('', ''),
                     ('&', r'\&'),

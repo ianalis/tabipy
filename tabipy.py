@@ -27,12 +27,13 @@ class TableCell(object):
     _latex_escape_re = None
     
     def __init__(self, value, header=False, bg_colour=None, text_colour=None,
-                 col_span=1):
+                 col_span=1, format='{}'):
         self.value = value
         self.header = header
         self.bg_colour = bg_colour
         self.text_colour = text_colour
         self.col_span = col_span
+        self.format = format
 
         # initialize regex for escaping to latex code
         if self._latex_escape_re is None:
@@ -67,6 +68,9 @@ class TableCell(object):
     def col_span(self,val):
         val = self._check_span(val)
         self._col_span = val
+
+    def formatted_value(self):
+        return self.format.format(self.value)
     
     def _repr_html_(self):
         tag = 'th' if self.header else 'td'
@@ -77,12 +81,13 @@ class TableCell(object):
         style = self._make_css()
         if style:
             attrs.append('style="%s"'%style)
-        return "<%s %s %s>%s</%s>"% (tag, spans,' '.join(attrs), self.value, 
-                                     tag)
+        return "<%s %s %s>%s</%s>"% (tag, spans,' '.join(attrs), 
+                                     self.formatted_value(), 
+                                     tag) 
 
     def _repr_latex_(self):
-        out = (str if PY3 else unicode)(self.value)
-        out = self._latex_escape_re.sub(self._latex_escape_func, out)
+        out = self._latex_escape_re.sub(self._latex_escape_func, 
+                                        self.formatted_value())
         # the bolf flag must only be next to the value of the cell not outside
         # of the multicolumn flag
         out = u"\\bf " + out if self.header else out
@@ -101,11 +106,19 @@ class TableHeader(TableCell):
 
 class TableRow(object):
     def  __init__(self, *cells, **kwargs):
-        self.parent = None
         self.max_len = kwargs.get("max_len",None)
         self.cells = []
-        for c in cells:
-            self.append_cell(c)
+
+        self.row_format = kwargs.get('format', None)
+        if self.row_format:
+            # check that format length is equal to number of columns
+           if self.max_len and len(self.row_format) != self.max_len:
+               raise ValueError('Wrong number of format strings')
+
+        for i,c in enumerate(cells):
+            self.append_cell(c, 
+                             format=(self.row_format[i] 
+                                         if self.row_format else '{}'))
         if self.max_len is not None:
             cur_len = self.column_count()
             if cur_len < self.max_len:
@@ -128,9 +141,9 @@ class TableRow(object):
     def set_parent(self, parent):
         self.parent = parent
             
-    def append_cell(self, c):
+    def append_cell(self, c, format='{}'):
         if not isinstance(c, TableCell):
-            c = TableCell(c)
+            c = TableCell(c, format=format)
         if c.col_span>1:
             self.cells.append(c)
             index = self.column_count()
@@ -189,14 +202,19 @@ class TableRow(object):
         return latex
 
 class TableHeaderRow(TableRow):
-    def append_cell(self, c):
+    def __init__(self, *cells, **kwargs):
+        self.col_format = kwargs.get('col_format')
+        super(TableHeaderRow, self).__init__(*cells, **kwargs)
+
+    def append_cell(self, c, format='{}'):
         if not isinstance(c, TableCell):
-            c = TableCell(c, header=True)
+            c = TableCell(c, header=True, format=format)
         self.cells.append(c)
 
     def set_parent(self, parent):
         super(TableHeaderRow, self).set_parent(parent)
         self.parent.has_header = True
+        self.parent.col_format = self.col_format
 
     def _repr_latex_(self):
         return super(TableHeaderRow, self)._repr_latex_() + '\\hline\n'
@@ -205,6 +223,7 @@ class Table(object):
     def __init__(self, *rows):
         self.rows = []
         self.has_header = False
+        self.col_format = None
 
         # if argument is a single dict, convert it to a table with keys
         # as header
@@ -223,7 +242,12 @@ class Table(object):
     
     def append_row(self, r, max_len=None):
         if not isinstance(r, TableRow):
-            r = TableRow(*r, max_len=max_len)
+            # check if a column format was assigned to table
+            if self.col_format is not None:
+                r = TableRow(*r, max_len=max_len, parent=self, 
+                             format=self.col_format)
+            else:
+                r = TableRow(*r, max_len=max_len, parent=self)
         r.set_parent(self)
         self.rows.append(r)
     
