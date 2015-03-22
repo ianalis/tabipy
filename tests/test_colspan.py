@@ -53,7 +53,7 @@ def test_col_span_format_html():
     
     for row, row_exp in zip(row_split.split(t_html)[1:], expected):
         cells = [c for c in col_split.findall(row) if c]
-        for cell, cell_exp in zip(c, row_exp):
+        for cell, cell_exp in zip(cells, row_exp):
              assert cell == cell_exp
 
 def test_col_span_format_latex():
