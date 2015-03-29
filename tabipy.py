@@ -4,6 +4,7 @@
 #---- 
 import re
 import sys
+from collections import OrderedDict as Dict
 PY3 = sys.version_info[0] >= 3
 
 try:
@@ -34,16 +35,41 @@ class TableCell(object):
         self.text_colour = text_colour
         self.col_span = col_span
         self.format = format
-
         # initialize regex for escaping to latex code
         if self._latex_escape_re is None:
             self._latex_escape_re = re.compile('|'.join(map(re.escape, 
                                         sorted(self._latex_escape_table.keys(),
                                                key=len, reverse=True))))
-
+    def _defaults_(self):
+        defaults = Dict([('value',('','self.value')),
+                         ('header',(False,'self.header')),
+                         ('bg_colour',(None,'self.bg_colour')),
+                         ('text_colour',(None,'self.text_colour')),
+                         ('col_span',(1,'self.col_span')),
+                         ('format',(None,'self.format'))])
+        return defaults
+    
     def _latex_escape_func(self, match): 
         """Replace regex match with latex equivalent"""
         return self._latex_escape_table[match.group()]
+        
+    def __repr__(self):
+        #text = "value = {},\n".format(self.value)
+        #text += "header = {},\n".format(self.header)
+        #text += "bg_colour = {},\n".format(self.bg_colour)
+        #text += "text_colour = {},\n".format(self.text_colour)
+        #text += "col_span = {},\n".format(self.col_span)
+        val = "'%s'"%self.value if type(self.value)==str else self.value
+        text = "TableCell({}".format(val)
+        for key, values in self._defaults_().items():
+            if key == 'value':
+                continue
+            default, txt_actual = values
+            current = eval(txt_actual)
+            if default!=current:
+                text += ', {}={}'.format(key,current)
+        text += ')'
+        return text
     
     def _make_css(self):
         rules = []
@@ -265,11 +291,18 @@ class Table(object):
             rows = new_rows
         max_len = None
         for index, r in enumerate(rows):
-#             print(max_len)
             self.append_row(r, max_len)
             if index==0:
                 max_len = self.rows[0].column_count()
             
+    def cell(self, row, col):
+        """Allows for direct addressing of individual cells (row, column)
+
+        Any value not entered will remain unchanged.
+        Address is (row, column) with an origin index of 0."""
+        Row = self.rows[row]
+        cell = Row.cells[col]
+        return cell
     
     def append_row(self, r, max_len=None):
         if not isinstance(r, TableRow):
