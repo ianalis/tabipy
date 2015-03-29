@@ -37,10 +37,10 @@ def test_col_span_latex(t):
     #print("pass")
 
 def test_col_span_format_html():
-    t = Table(TableHeaderRow('A', 'B', 'C', 'D',
-                             col_format=('{:.2g}', '{:.3g}', '{:d}', '{:10.4g}')),
+    t = Table(TableHeaderRow('A', 'B', 'C', 'D'),
               (1.50, TableCell(3.5678, col_span=2), 10.9876),
-              (112.679, 74.2974, 2.298639, 7.46036))
+              (112.679, 74.2974, 2.298639, 7.46036),
+              col_format=('{:.2g}', '{:.3g}', '{:d}', '{:10.4g}'))
     cell_3_2 = t.rows[2].cells[1]
     cell_3_2.col_span = 2
     expected = (('A', 'B', 'C', 'D'),
@@ -57,10 +57,10 @@ def test_col_span_format_html():
              assert cell == cell_exp
 
 def test_col_span_format_latex():
-    t = Table(TableHeaderRow('A', 'B', 'C', 'D',
-                             col_format=('{:.2g}', '{:.3g}', '{:d}', '{:10.4g}')),
+    t = Table(TableHeaderRow('A', 'B', 'C', 'D'),
               (1.50, TableCell(3.5678, col_span=2), 10.9876),
-              (112.679, 74.2974, 2.298639, 7.46036))
+              (112.679, 74.2974, 2.298639, 7.46036),
+              col_format=('{:.2g}', '{:.3g}', '{:d}', '{:10.4g}'))
     cell_3_2 = t.rows[2].cells[1]
     cell_3_2.col_span = 2
     expected = (('A', 'B', 'C', 'D'),

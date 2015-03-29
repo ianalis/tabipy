@@ -254,15 +254,6 @@ class TableRow(object):
         return latex
 
 class TableHeaderRow(TableRow):
-    def __init__(self, *cells, **kwargs):
-        self.col_format = kwargs.get('col_format')
-        super(TableHeaderRow, self).__init__(*cells, **kwargs)
-
-        # assign a row format if undefined to prevent the table column format
-        # from being used
-        if self.row_format is None:
-            self.row_format = [u'{}'] * len(self.cells)
-
     def append_cell(self, c, format='{}'):
         if not isinstance(c, TableCell):
             c = TableCell(c, header=True, format=format)
@@ -271,16 +262,14 @@ class TableHeaderRow(TableRow):
     def set_parent(self, parent):
         super(TableHeaderRow, self).set_parent(parent)
         self.parent.has_header = True
-        self.parent.col_format = self.col_format
 
     def _repr_latex_(self):
         return super(TableHeaderRow, self)._repr_latex_() + '\\hline\n'
 
 class Table(object):
-    def __init__(self, *rows):
+    def __init__(self, *rows, **kwargs):
         self.rows = []
         self.has_header = False
-        self.col_format = None
 
         # if argument is a single dict, convert it to a table with keys
         # as header
@@ -294,6 +283,13 @@ class Table(object):
             self.append_row(r, max_len)
             if index==0:
                 max_len = self.rows[0].column_count()
+
+        col_format = kwargs.get('col_format')
+        if col_format:
+            # check that format length is equal to number of columns
+           if max_len and len(col_format) != max_len:
+               raise ValueError('Wrong number of format strings')
+        self.col_format = col_format
             
     def cell(self, row, col):
         """Allows for direct addressing of individual cells (row, column)
@@ -306,12 +302,7 @@ class Table(object):
     
     def append_row(self, r, max_len=None):
         if not isinstance(r, TableRow):
-            # check if a column format was assigned to table
-            if self.col_format is not None:
-                r = TableRow(*r, max_len=max_len, parent=self, 
-                             format=self.col_format)
-            else:
-                r = TableRow(*r, max_len=max_len, parent=self)
+            r = TableRow(*r, max_len=max_len, parent=self)
         r.set_parent(self)
         self.rows.append(r)
     

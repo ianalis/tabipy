@@ -1,4 +1,5 @@
 import re
+import pytest
 from tabipy import Table, TableRow, TableCell, TableHeaderRow, TableHeader
 
 def test_simple():
@@ -43,10 +44,10 @@ def test_cell_format():
         assert cell.formatted_value() == expected
 
 def test_col_format_html():
-    t = Table(TableHeaderRow('A', 'B', 'C', 
-                             col_format=('{:.2g}', '{:d}', '{:10.4g}')),
+    t = Table(TableHeaderRow('A', 'B', 'C'), 
               (1.50, 2, 3.5678),
-              (TableHeader('Total'), 20, 30))
+              (TableHeader('Total'), 20, 30),
+              col_format=('{:.2g}', '{:d}', '{:10.4g}'))
     expected = (('A', 'B', 'C'),
                 ('1.5', '2', '     3.568'),
                 ('Total', '20', '        30'))
@@ -61,10 +62,10 @@ def test_col_format_html():
              assert cell == cell_exp
 
 def test_col_format_latex():
-    t = Table(TableHeaderRow('A', 'B', 'C', 
-                             col_format=('{:.2g}', '{:d}', '{:10.4g}')),
+    t = Table(TableHeaderRow('A', 'B', 'C'), 
               (1.50, 2, 3.5678),
-              (TableHeader('Total'), 20, 30))
+              (TableHeader('Total'), 20, 30),
+              col_format=('{:.2g}', '{:d}', '{:10.4g}'))
     expected = (('A', 'B', 'C'),
                 ('1.5', '2', '     3.568'),
                 ('Total', '20', '        30'))
@@ -83,6 +84,21 @@ def test_col_format_latex():
         cells = [c for c in col_split.split(row) if c]
         for cell, cell_exp in zip(cells, row_exp):
              assert cell_exp in cell
+
+def test_col_format_wrong_count():
+    with pytest.raises(ValueError) as excinfo:
+        t = Table(TableHeaderRow('A', 'B', 'C'), 
+                  (1.50, 2, 3.5678),
+                  (TableHeader('Total'), 20, 30),
+                  col_format=('{:.2g}', '{:d}')) 
+    assert 'Wrong number of format strings' in str(excinfo)
+
+    with pytest.raises(ValueError) as excinfo:
+        t = Table(TableHeaderRow('A', 'B', 'C'), 
+                  (1.50, 2, 3.5678),
+                  (TableHeader('Total'), 20, 30),
+                  col_format=('{:.2g}', '{:d}', '{:10.4g}', '{:f}')) 
+    assert 'Wrong number of format strings' in str(excinfo)
 
 def test_escape():
     inp_expected = (('', ''),
