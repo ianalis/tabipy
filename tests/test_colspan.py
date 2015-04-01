@@ -15,6 +15,7 @@ def t():
 def test_col_span_html(t):
     "This test col_span works in html"
     t1_html = t._repr_html_()
+    print t1_html
     row_split = re.compile('<\s*tr\s*>')
     lines = row_split.split(t1_html)
     assert len(lines)==4
@@ -39,13 +40,11 @@ def test_col_span_latex(t):
 def test_col_span_format_html():
     t = Table(TableHeaderRow('A', 'B', 'C', 'D'),
               (1.50, TableCell(3.5678, col_span=2), 10.9876),
-              (112.679, 74.2974, 2.298639, 7.46036),
+              (112.679, 74.2974, 23, 7.46036),
               col_format=('{:.2g}', '{:.3g}', '{:d}', '{:10.4g}'))
-    cell_3_2 = t.rows[2].cells[1]
-    cell_3_2.col_span = 2
     expected = (('A', 'B', 'C', 'D'),
                 ('1.5', '3.57', '     10.99'),
-                ('1.1e+02', '74.3', '      7.46'))
+                ('1.1e+02', '74.3', '23', '      7.46'))
 
     t_html = t._repr_html_()
     row_split = re.compile('<\s*tr\s*>')
@@ -59,13 +58,11 @@ def test_col_span_format_html():
 def test_col_span_format_latex():
     t = Table(TableHeaderRow('A', 'B', 'C', 'D'),
               (1.50, TableCell(3.5678, col_span=2), 10.9876),
-              (112.679, 74.2974, 2.298639, 7.46036),
+              (112.679, 74.2974, 23, 7.46036),
               col_format=('{:.2g}', '{:.3g}', '{:d}', '{:10.4g}'))
-    cell_3_2 = t.rows[2].cells[1]
-    cell_3_2.col_span = 2
     expected = (('A', 'B', 'C', 'D'),
                 ('1.5', '3.57', '     10.99'),
-                ('1.1e+02', '74.3', '      7.46'))
+                ('1.1e+02', '74.3', '23', '      7.46'))
 
     t_latex = t._repr_latex_()
     row_split = re.compile(r'\n')
@@ -77,7 +74,7 @@ def test_col_span_format_latex():
         assert cell_exp in cell
 
     # check body
-    for row, row_exp in zip(lines[4:-2], expected):
+    for row, row_exp in zip(lines[4:-2], expected[1:]):
         cells = [c for c in col_split.split(row) if c]
         for cell, cell_exp in zip(cells, row_exp):
              assert cell_exp in cell

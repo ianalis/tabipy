@@ -75,12 +75,13 @@ def test_col_format_latex():
     col_split = re.compile(r' & ')
 
     lines = row_split.split(t_latex)
+    print lines
     # check header
     for cell, cell_exp in zip(col_split.split(lines[2]), expected[0]):
         assert cell_exp in cell
 
     # check body
-    for row, row_exp in zip(lines[4:-2], expected):
+    for row, row_exp in zip(lines[4:-2], expected[1:]):
         cells = [c for c in col_split.split(row) if c]
         for cell, cell_exp in zip(cells, row_exp):
              assert cell_exp in cell
