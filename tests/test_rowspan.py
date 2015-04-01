@@ -25,7 +25,6 @@ def test_row_span_html():
     assert len(cl_check.findall(row1_parts[0]))>0
     assert len(row1_parts)==7
     assert len(row2_parts)==5
-    #print("pass")
 
 def test_row_span_latex():
     "This test col_span works in latex"
@@ -39,7 +38,6 @@ def test_row_span_latex():
     cl_check = re.compile('\w*\\multirow\s*\{\s*2\s*}')
     assert len(cl_check.findall(row1_parts[0]))>0
     assert row2_parts[0].strip().replace('\n','')==''
-    #print("pass")
 
 def test_row_span_format_html():
     t = Table(TableHeaderRow('A', 'B', 'C', 'D'),

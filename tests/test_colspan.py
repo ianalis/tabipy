@@ -15,7 +15,6 @@ def t():
 def test_col_span_html(t):
     "This test col_span works in html"
     t1_html = t._repr_html_()
-    print t1_html
     row_split = re.compile('<\s*tr\s*>')
     lines = row_split.split(t1_html)
     assert len(lines)==4
@@ -23,7 +22,6 @@ def test_col_span_html(t):
     parts = col_split.split(lines[1])
     cl_check = re.compile('colspan\s*=\s*"\s*2\s*"')
     assert len(cl_check.findall(parts[0]))>0
-    #print("pass")
 
 def test_col_span_latex(t):
     "This test col_span works in latex"
@@ -35,7 +33,6 @@ def test_col_span_latex(t):
     parts = col_split.split(lines[0])
     cl_check = re.compile('\w*\\multicolumn\s*\{\s*2\s*}')
     assert len(cl_check.findall(parts[0]))>0
-    #print("pass")
 
 def test_col_span_format_html():
     t = Table(TableHeaderRow('A', 'B', 'C', 'D'),
