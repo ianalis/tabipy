@@ -1,9 +1,6 @@
-#name: tabipy.py
-#type: text/x-python
-#size: 8195 bytes 
-#---- 
 import re
 import sys
+import warnings
 from collections import OrderedDict as Dict
 PY3 = sys.version_info[0] >= 3
 
@@ -28,13 +25,16 @@ class TableCell(object):
     _latex_escape_re = None
     
     def __init__(self, value, header=False, bg_colour=None, text_colour=None,
-                 col_span=1, format=None):
+                 row_span=1, col_span=1, format=None):
         self.value = value
         self.header = header
         self.bg_colour = bg_colour
         self.text_colour = text_colour
+        self.row_span = row_span
         self.col_span = col_span
         self.format = format
+        self._suppress = False
+
         # initialize regex for escaping to latex code
         if self._latex_escape_re is None:
             self._latex_escape_re = re.compile('|'.join(map(re.escape, 
@@ -45,6 +45,7 @@ class TableCell(object):
                          ('header',(False,'self.header')),
                          ('bg_colour',(None,'self.bg_colour')),
                          ('text_colour',(None,'self.text_colour')),
+                         ('row_span',(1,'self.row_span')),
                          ('col_span',(1,'self.col_span')),
                          ('format',(None,'self.format'))])
         return defaults
@@ -54,11 +55,6 @@ class TableCell(object):
         return self._latex_escape_table[match.group()]
         
     def __repr__(self):
-        #text = "value = {},\n".format(self.value)
-        #text += "header = {},\n".format(self.header)
-        #text += "bg_colour = {},\n".format(self.bg_colour)
-        #text += "text_colour = {},\n".format(self.text_colour)
-        #text += "col_span = {},\n".format(self.col_span)
         val = "'%s'"%self.value if type(self.value)==str else self.value
         text = "TableCell({}".format(val)
         for key, values in self._defaults_().items():
@@ -86,7 +82,15 @@ class TableCell(object):
             er = "Row and columns spand must be greater or equal to 1"
             raise(ValueError(er))
         return val
-    
+        
+    @property
+    def row_span(self):
+        return self._row_span
+    @row_span.setter
+    def row_span(self,val):
+        val = self._check_span(val)
+        self._row_span = val
+        
     @property
     def col_span(self):
         return self._col_span
@@ -110,6 +114,8 @@ class TableCell(object):
         spans = ''
         if self.col_span>1:
             spans += 'colspan="%s" '%self.col_span
+        if self.row_span>1:
+            spans += 'rowspan="%s"'%self.row_span
         attrs = []
         style = self._make_css()
         if style:
@@ -124,11 +130,22 @@ class TableCell(object):
                                         self.formatted_value(format))
         # the bolf flag must only be next to the value of the cell not outside
         # of the multicolumn flag
-        out = u"\\bf " + out if self.header else out
-        if self.col_span>1:
-            text = "\multicolumn{%d}{l}{%s}"%(self.col_span, out)
+        if self._suppress: # For hiding cell content when using multicolumn
+            out = ''
+        elif self.header:
+            out = u"\\bf " + out
+        if self.row_span>1:
+            warn_txt = ('Must use multirow package in the .tex file, \n e.g.'
+            r' "\usepackage{multirow} % to support multiple rows"')
+            warnings.warn(warn_txt)
+            text_row = "\multirow{%d}{*}{%s}"%(self.row_span,out)  
         else:
-            text = out
+            text_row = out
+        if self.col_span>1:
+            text = "\multicolumn{%d}{l}{%s}"%(self.col_span, text_row)
+        else:
+            text = text_row    
+#         text = "\multicolumn{%d}{l}{%s}"%(self.col_span, text_row)
         return text
 
 class TableHeader(TableCell):
@@ -140,7 +157,8 @@ class TableHeader(TableCell):
 
 class TableRow(object):
     def  __init__(self, *cells, **kwargs):
-        self.max_len = kwargs.get("max_len",None)
+        self.parent = None
+        self.max_len = kwargs.get('max_len',None)
         self.cells = []
 
         self.row_format = kwargs.get('format', None)
@@ -160,14 +178,27 @@ class TableRow(object):
             
     @property
     def _current(self):
-        "This provides column information for the current row"
+        """This provides column and rowspan information for the following row
+
+        If the row above spans into the current row it decrements the row 
+        span value from the row above.  This also updates the current row's 
+        cell's row_span information to reflect any correction based on the 
+        previous row."""
+        decp_a = []
+        if len(self._above)>0:
+            for r, c in self._above:
+                decp_a += [(r,c)]
+        else:
+            decp_a = [(1,1) for c in range(self.column_count())]
         count = 0
         current = []
         for index, c in enumerate(self.cells):
             if index == count:
                 for col in range(c.col_span):
-                    cs = c.col_span
-                    current.append(cs)
+                    row_above, col_above = decp_a[count]
+                    rs = c.row_span if row_above==1 else row_above-1
+                    cs = c.col_span if row_above==1 else col_above
+                    current.append([rs, cs])
                     count +=1
         return current
 
@@ -208,34 +239,40 @@ class TableRow(object):
         # cell, with col_span greater than 1, contains content, that content 
         # will not be rendeded.  The content is not distroyed, just not rended.
         cur = self._current # Updates the current cells row span info
+        abv = [[1,1] for c in cur] if len(self._above)==0 else self._above
         html = '<tr>'
         index = 0      
-        for count, c_col in enumerate(cur):
+        for count, values in enumerate(zip(abv,cur)):
+            (a_row, a_col), (c_row, c_col) = values
             if index == count:
-                cell_format = None
-                # format priority:
-                # 1. cell format
-                # 2. row format
-                # 3. table header row format
-                if self.row_format:
-                    cell_format = self.row_format[index]
-                elif self.parent.col_format:
-                    cell_format = self.parent.col_format[index]
-
-                html += self.cells[index]._repr_html_(cell_format)
-                index += c_col
+                if a_row==1:
+                    cell_format = None
+                    # format priority:
+                    # 1. cell format
+                    # 2. row format
+                    # 3. table header row format
+                    if self.row_format:
+                        cell_format = self.row_format[index]
+                    elif self.parent.col_format:
+                        cell_format = self.parent.col_format[index]
+    
+                    html += self.cells[index]._repr_html_(cell_format)
+                    index += c_col
+                else:
+                    index += a_col
         html +='</tr>'
         return html
-
 
     def _repr_latex_(self):
         # Note: Because of how a row is rendered, if a cell to the right of a
         # cell, with col_span greater than 1, contains content, that content 
         # will not be rendeded.  The content is not distroyed, just not rended.
         cur = self._current # Updates the current cells row span info
+        abv = [[1,1] for c in cur] if len(self._above)==0 else self._above
         latex = ''
         index = 0
-        for count, c_col in enumerate(cur):
+        for count, values in enumerate(zip(abv,cur)):
+            (a_row, a_col), (c_row, c_col) = values
             if index == count:
                 cell_format = None
                 # format priority:
@@ -247,10 +284,23 @@ class TableRow(object):
                 elif self.parent.col_format:
                     cell_format = self.parent.col_format[index]
 
-                latex += self.cells[index]._repr_latex_(cell_format) + ' & '
-                index += c_col
-        latex = latex.strip('& ')
-        latex += '\\\\\n'
+                if index != 0:
+                    latex += ' & '
+                cell = self.cells[index]
+                if a_row==1:
+                    latex += cell._repr_latex_(cell_format)
+                    index += c_col
+                else:
+                    # For cells not being rendered, their status need to be  
+                    # temporarily changed to suppress output and reflect the 
+                    # previous row's column span.
+                    cell._suppress = True
+                    tmp, cell._col_span = cell._col_span, a_col
+                    latex += cell._repr_latex_(cell_format)
+                    cell._col_span = tmp
+                    cell._suppress = False
+                    index += a_col
+        latex += '\\\\'#\n'
         return latex
 
 class TableHeaderRow(TableRow):
@@ -264,7 +314,7 @@ class TableHeaderRow(TableRow):
         self.parent.has_header = True
 
     def _repr_latex_(self):
-        return super(TableHeaderRow, self)._repr_latex_() + '\\hline\n'
+        return super(TableHeaderRow, self)._repr_latex_() + '\\\nhline'
 
 class Table(object):
     def __init__(self, *rows, **kwargs):
@@ -280,6 +330,7 @@ class Table(object):
             rows = new_rows
         max_len = None
         for index, r in enumerate(rows):
+        
             self.append_row(r, max_len)
             if index==0:
                 max_len = self.rows[0].column_count()
@@ -307,11 +358,28 @@ class Table(object):
         self.rows.append(r)
     
     def _repr_html_(self):
-        return '<table>\n' + '\n'.join(r._repr_html_() for r in self.rows) + '\n</table>'
+        html = '<table>\n' 
+        above = []
+        for row in self.rows:
+            row._above = above
+            html += row._repr_html_() + '\n'
+            above = row._current # Should this be passed back by the repr?
+        html += '</table>'
+        return html
 
-    def _repr_latex_(self):
-        out = '\n'.join(r._repr_latex_() for r in self.rows)
-        if self.has_header:
-            out = '\\hline\n' + out + '\\hline\n'
-        return '\\begin{tabular}{*{%d}{l}}\n%s\\end{tabular}' % \
-                        (self.rows[0].column_count(), out)
+    def _repr_latex_(self):   
+        latex = '\\begin{tabular}{*{%d}{l}}\n'%self.rows[0].column_count()
+        # Top horizontal line of table
+        latex += r'\hline' + '\n' if self.has_header else ''
+        above = []
+        # Fill table contents
+        for row in self.rows:
+            row._above = above
+            latex += row._repr_latex_() + '\n'
+            above = row._current
+        #Bottom horizontal line of table
+        latex += r'\hline' + '\n' if self.has_header else ''
+        # Finish table
+        latex += r'\end{tabular}'
+        return latex
+
