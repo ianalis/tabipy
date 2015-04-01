@@ -75,7 +75,6 @@ def test_col_format_latex():
     col_split = re.compile(r' & ')
 
     lines = row_split.split(t_latex)
-    print lines
     # check header
     for cell, cell_exp in zip(col_split.split(lines[2]), expected[0]):
         assert cell_exp in cell
@@ -160,7 +159,6 @@ def _actual_col_span_html(t):
     parts = col_split.split(lines[1])
     cl_check = re.compile('colspan\s*=\s*"\s*2\s*"')
     assert len(cl_check.findall(parts[0]))>0
-    #print("pass")
 
 def test_col_span_latex():
     "This tests that col_span works in latex"
@@ -185,7 +183,6 @@ def _actual_col_span_latex(t):
     parts = col_split.split(lines[0])
     cl_check = re.compile('\w*\\multicolumn\s*\{\s*2\s*}')
     assert len(cl_check.findall(parts[0]))>0
-    #print("pass")
     
 def cell_method_col_span_table():
     "Returns a table modified to test col_span using the cell method"
